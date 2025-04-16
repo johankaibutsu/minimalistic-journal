@@ -4,39 +4,29 @@
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache"; // Ensure this is imported
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
-// --- Reusable Validation Schema (Update for optional date) ---
+// --- Reusable Validation Schema ---
 const PostSchema = z.object({
   text: z.string().min(1, "Journal entry text cannot be empty."),
+  // Allow empty string or valid URL for mediaUrl
   mediaUrl: z
     .union([z.string().url("Invalid URL format.").nullish(), z.literal("")])
-    .transform((val) => (val === "" ? null : val)), // Keep this transform
-  // Add optional custom date field - accepts YYYY-MM-DD format string or empty
-  customCreatedAt: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, {
-      message: "Invalid date format (YYYY-MM-DD)",
-    })
-    .optional()
-    .or(z.literal("")), // Allow empty string
+    .transform((val) => (val === "" ? null : val)), // Convert empty string to null
 });
 
-// --- Auth Actions (remain the same) ---
+// --- Auth Actions (from previous step) ---
+// ... login and logout functions remain the same ...
 const LoginSchema = z.object({
-  /* ... */
+  password: z.string().min(1, "Password is required."),
 });
-export type LoginState =
-  | {
-      /* ... */
-    }
-  | null;
+export type LoginState = { message: string; error?: boolean } | null;
 export async function login(
   prevState: LoginState | null,
   formData: FormData,
 ): Promise<LoginState> {
-  /* ... */
+  // ... (implementation from Step 3) ...
   const validatedFields = LoginSchema.safeParse({
     password: formData.get("password"),
   });
@@ -56,12 +46,11 @@ export async function login(
   }
 }
 export async function logout() {
-  /* ... */
   cookies().delete("auth_token");
   redirect("/admin/login");
 }
 
-// --- CRUD Actions (Updated) ---
+// --- CRUD Actions ---
 
 export type FormState = {
   message: string;
