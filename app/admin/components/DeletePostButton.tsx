@@ -1,9 +1,8 @@
-// app/admin/components/DeletePostButton.tsx
 "use client";
 
-import { useState } from "react";
-import { useFormStatus } from "react-dom";
-import { deleteAdminPost } from "../actions"; // Import the delete action
+import { useState, useTransition } from "react"; // Add useTransition
+// Remove useFormStatus import if DeleteConfirmButton is removed
+import { deleteAdminPost } from "../actions";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -17,43 +16,28 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react"; // Icon
-
-function DeleteConfirmButton() {
-  const { pending } = useFormStatus();
-  return (
-    <AlertDialogAction
-      onClick={async (e) => {
-        // The form submission will handle the actual deletion
-        // This onClick might still be needed if the form doesn't submit automatically
-        // on this button click (depends on AlertDialog behavior)
-        if (pending) {
-          e.preventDefault(); // Prevent action if already pending
-        }
-      }}
-      disabled={pending}
-      aria-disabled={pending}
-      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-    >
-      {pending ? "Deleting..." : "Delete"}
-    </AlertDialogAction>
-  );
-}
+import { Trash2 } from "lucide-react";
 
 export default function DeletePostButton({ postId }: { postId: string }) {
   const [isOpen, setIsOpen] = useState(false);
+  // useTransition helps manage pending state for server actions without a full form state
+  const [isPending, startTransition] = useTransition();
 
-  // Bind the postId to the action
-  const deleteActionWithId = async () => {
-    try {
-      await deleteAdminPost(postId);
-      toast.success("Post deleted successfully.");
-      setIsOpen(false); // Close dialog on success
-      // Revalidation happens in the server action
-    } catch (error: any) {
-      console.error("Delete failed:", error);
-      toast.error(error.message || "Failed to delete post.");
-    }
+  const handleDelete = async () => {
+    // Use startTransition to wrap the server action call
+    startTransition(async () => {
+      try {
+        await deleteAdminPost(postId); // Call the server action directly
+        toast.success("Post deleted successfully.");
+        setIsOpen(false); // Close dialog on success
+        // Revalidation should happen within deleteAdminPost action
+      } catch (error: any) {
+        console.error("Delete failed:", error);
+        toast.error(error.message || "Failed to delete post.");
+        // Optionally keep the dialog open on error:
+        // setIsOpen(true);
+      }
+    });
   };
 
   return (
@@ -71,11 +55,16 @@ export default function DeletePostButton({ postId }: { postId: string }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          {/* Wrap the confirmation button in a form to trigger the action */}
-          <form action={deleteActionWithId}>
-            <DeleteConfirmButton />
-          </form>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          {/* The AlertDialogAction now triggers our client-side handleDelete */}
+          <AlertDialogAction
+            onClick={handleDelete} // Call client-side handler on click
+            disabled={isPending}
+            aria-disabled={isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isPending ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -58,14 +58,6 @@ export type FormState = {
   issues?: string[];
 } | null;
 
-function checkAuth() {
-  /* ... */
-  const authToken = cookies().get("auth_token")?.value;
-  if (authToken !== "logged_in") {
-    throw new Error("Not authorized");
-  }
-}
-
 // CREATE Action
 export async function createAdminPost(
   prevState: FormState | null,
@@ -73,8 +65,6 @@ export async function createAdminPost(
 ): Promise<FormState> {
   let postId: string | null = null;
   try {
-    checkAuth();
-
     const rawFormData = {
       text: formData.get("text"),
       mediaUrl: formData.get("mediaUrl") || "",
@@ -149,8 +139,6 @@ export async function updateAdminPost(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    checkAuth();
-
     const rawFormData = {
       text: formData.get("text"),
       mediaUrl: formData.get("mediaUrl") || "",
@@ -219,23 +207,24 @@ export async function updateAdminPost(
 // DELETE Action
 export async function deleteAdminPost(id: string) {
   try {
-    checkAuth();
-
     await prisma.post.delete({
       where: { id },
     });
-
     // Revalidate paths *after* successful deletion
     revalidatePath("/admin");
     revalidatePath("/");
   } catch (error: any) {
     // Catch specific error types if needed
-    console.error("Delete Post Error:", error);
-    if (error instanceof Error && error.message === "Not authorized") {
-      throw new Error("Authorization Error: Cannot delete post."); // Re-throw or handle
-    }
-    // Throw a generic error for other DB issues
-    throw new Error("Database Error: Failed to delete post.");
+    console.error(`Database Error deleting post ${id}:`, error);
+
+    // Check for specific Prisma errors if necessary
+    // if (error.code === 'P2025') { // Record to delete not found
+    //    throw new Error("Post not found.");
+    // }
+
+    // Throw a more specific or generic error for the client
+    throw new Error(`Database Error: Failed to delete post (ID: ${id}).`);
   }
-  // No redirect needed here, UI update handled by component calling this
+  // No return value needed, success is implied if no error is thrown
+  // No redirect needed here
 }
